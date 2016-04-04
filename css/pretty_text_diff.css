@@ -1,0 +1,10 @@
+#islandora-pretty-text-diff-diff ins {
+    background-color: rgb(83, 232, 93);
+    background-color: rgba(83, 232, 93, 0.50);
+    text-decoration: none;
+}
+
+#islandora-pretty-text-diff-diff del {
+    background-color: rgb(232, 96, 96);
+    background-color: rgba(232, 96, 96, 0.50);
+}

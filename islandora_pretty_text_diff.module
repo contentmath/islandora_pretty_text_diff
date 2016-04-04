@@ -1,0 +1,249 @@
+<?php
+
+/**
+ * @file
+ * Main module file for Islandora Pretty Text Diff.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function islandora_pretty_text_diff_menu() {
+  $items = array();
+  $items['islandora/object/%islandora_object/datastream/%islandora_datastream/diff/%/%'] = array(
+    'title' => 'Datastream diff',
+    'page arguments' => array(4, 6, 7),
+    'page callback' => 'islandora_pretty_text_diff_versions',
+    'type' => MENU_LOCAL_TASK,
+    'access callback' => 'islandora_pretty_text_diff_access',
+    'access arguments' => array(4, 6, 7),
+    'load arguments' => array(2),
+    'weight' => 10,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ *
+ * Used to override the default output by appending the diff form to the
+ * original content.
+ */
+function islandora_pretty_text_diff_menu_alter(&$items) {
+  $items['islandora/object/%islandora_object/datastream/%islandora_datastream/version']['page callback'] = 'islandora_pretty_text_diff_versions_override';
+}
+
+/**
+ * Implements hook_permission().
+ */
+function islandora_pretty_text_diff_permission() {
+  return array(
+    'view datastream diff' => array(
+      'title' => t('View the diff of datastream versions'),
+      'description' => t('Users will also need permission to view datastream versions.'),
+    ),
+  );
+}
+
+/**
+ * Access callback for the diff view.
+ *
+ * @param AbstractDatastream $datastream
+ *   The datastream to view diff.
+ * @param int $v1
+ *   The first datastream version.
+ * @param int $v2
+ *   The second datastream version.
+ *
+ * @return bool
+ *   TRUE if the user should view the diff.
+ */
+function islandora_pretty_text_diff_access($datastream, $v1, $v2) {
+  if (user_access('view datastream diff')
+    && islandora_datastream_access(ISLANDORA_VIEW_DATASTREAM_HISTORY, $datastream)) {
+    if (isset($datastream[$v1]) && isset($datastream[$v2])) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Menu callback override for islandora_datastream_version_table().
+ *
+ * @param AbstractDatastream $datastream
+ *   The datastream for the versions table.
+ *
+ * @return array|string
+ *   Return original table or the table plus diff form.
+ */
+function islandora_pretty_text_diff_versions_override($datastream) {
+  // Get the original version table markup. It can't be altered.
+  $table = islandora_datastream_version_table($datastream);
+  // Check if the datastream mimetype is suitable for a text diff.
+  $good_mimetype = islandora_pretty_diff_check_mimetype($datastream);
+  // Does the user have permission? Are there at least two versions?
+  if (!user_access('view datastream diff') || $datastream->count() < 2 || !$good_mimetype) {
+    return $table;
+  }
+
+  $output = array(
+    'original' => array(
+      '#type' => 'markup',
+      '#markup' => $table,
+    ),
+    'diff_form' => array(
+      'form' => drupal_get_form('islandora_pretty_text_diff_form', $datastream),
+    ),
+  );
+  return $output;
+}
+
+/**
+ * Build the form that determines which versions of the datastream to diff.
+ *
+ * @param array $form
+ *   The form array.
+ * @param array $form_state
+ *   The form state array.
+ * @param AbstractDatastream $datastream
+ *   The datastream to diff.
+ *
+ * @return array
+ *   Return form array.
+ */
+function islandora_pretty_text_diff_form($form, &$form_state, $datastream) {
+  $form_state['storage']['islandora_pretty_text_diff']['dsid'] = $datastream->id;
+  $form_state['storage']['islandora_pretty_text_diff']['pid'] = $datastream->parent->id;
+
+  $form = array();
+  $options = array();
+
+  foreach ($datastream as $version => $datastream_version) {
+    $options[$version] = $datastream_version->createdDate->format(DATE_RFC850);
+  }
+
+  $form['info'] = array(
+    '#markup' => t('<h2>View Versions Diff</h2>'),
+  );
+  $form['first'] = array(
+    '#type' => 'select',
+    '#title' => t('Version 1'),
+    '#options' => $options,
+    '#required' => TRUE,
+  );
+  $form['second'] = array(
+    '#type' => 'select',
+    '#title' => t('Version 2'),
+    '#options' => $options,
+    '#required' => TRUE,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('View Diff'),
+  );
+  return $form;
+}
+
+/**
+ * Form submit function for the diff version selector form.
+ *
+ * @param array $form
+ *   The form array.
+ * @param array $form_state
+ *   The form state array.
+ */
+function islandora_pretty_text_diff_form_submit($form, &$form_state) {
+  $dsid = $form_state['storage']['islandora_pretty_text_diff']['dsid'];
+  $pid = $form_state['storage']['islandora_pretty_text_diff']['pid'];
+  $v1 = $form_state['values']['first'];
+  $v2 = $form_state['values']['second'];
+
+  // Redirect the user to the diff menu callback.
+  drupal_goto("islandora/object/{$pid}/datastream/{$dsid}/diff/{$v1}/{$v2}");
+}
+
+/**
+ * Render the diff page.
+ *
+ * @param string $content1
+ *   String of version 1 of the content.
+ * @param string $content2
+ *   String of version 2 of the content.
+ *
+ * @return array
+ *   Render array of the diff viewer markup.
+ */
+function islandora_pretty_text_diff_content($content1, $content2) {
+  $pretty_diff_path = libraries_get_path('jQuery.PrettyTextDiff');
+  $module_path = drupal_get_path('module', 'islandora_pretty_text_diff');
+
+  drupal_add_js($module_path . '/js/diff_match_patch.js');
+  drupal_add_js($pretty_diff_path . '/jquery.pretty-text-diff.min.js');
+  drupal_add_js($module_path . '/js/pretty_text_diff.js');
+  drupal_add_css($module_path . '/css/pretty_text_diff.css');
+
+  $output = array(
+    'first' => array(
+      '#type' => 'markup',
+      '#markup' => $content1,
+      '#prefix' => '<div id="islandora-pretty-text-diff-first" style="display:none;">',
+      '#suffix' => '</div>',
+    ),
+    'second' => array(
+      '#type' => 'markup',
+      '#markup' => $content2,
+      '#prefix' => '<div id="islandora-pretty-text-diff-second" style="display:none;">',
+      '#suffix' => '</div>',
+    ),
+    'diff' => array(
+      '#type' => 'markup',
+      '#markup' => '',
+      '#prefix' => '<pre><div id="islandora-pretty-text-diff-diff">',
+      '#suffix' => '</div></pre>',
+    ),
+  );
+  return $output;
+}
+
+/**
+ * Menu callback for the diff viewer.
+ *
+ * @param AbstractDatastream $datastream
+ *   The datastream to diff.
+ * @param int $v1
+ *   The first version number to diff.
+ * @param int $v2
+ *   The second version number to diff.
+ *
+ * @return array
+ *   Rendered return of islandora_pretty_text_diff_content().
+ */
+function islandora_pretty_text_diff_versions($datastream, $v1, $v2) {
+  $version1 = $datastream[$v1];
+  $version2 = $datastream[$v2];
+
+  // Convert entities if XML.
+  if (strpos($datastream->mimetype, 'xml') !== FALSE) {
+    // @TODO: Need to consider charset?
+    return islandora_pretty_text_diff_content(
+      htmlentities($version1->content, ENT_NOQUOTES),
+      htmlentities($version2->content, ENT_NOQUOTES)
+    );
+  }
+  return islandora_pretty_text_diff_content($version1->content, $version2->content);
+}
+
+/**
+ * Determine if the datastream's mimetype is suitable for text diff.
+ *
+ * @param AbstractDatastream $datastream
+ *   The datastream to check.
+ *
+ * @return int
+ *   0 if not suitable, 1 or more if suitable for text diff.
+ */
+function islandora_pretty_diff_check_mimetype($datastream) {
+  return preg_match('/xml|text/i', $datastream->mimetype);
+}

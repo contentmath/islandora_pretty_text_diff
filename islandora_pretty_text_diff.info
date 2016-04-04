@@ -1,0 +1,7 @@
+name = Islandora Pretty Text Diff
+description = Integrates the jQuery.PrettyTextDiff plugin to visualize differences in texts.
+core = 7.x
+dependencies[] = libraries
+dependencies[] = islandora
+version = 7.x-dev
+package = Islandora Tools
