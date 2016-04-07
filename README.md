@@ -25,13 +25,15 @@ jQuery.PrettyTextDiff is a wrapper for Google's Diff Match and Patch JavaScript 
 
 Enabling the module adds the diff form to the bottom of datastreams' versions page.
 
+![Configuration screenshots](http://static1.squarespace.com/static/56ec91e02fe1319543ad7e75/t/570305d122482eac526b4daa/1459815901671/?format=750w)
+
 ### Customization
 
 Islandora modules may call the islandora_pretty_text_diff_content() function with two different versions of content to render a diff.
 
 ## Documentation
 
-Further documentation for this module is available at [www.contentmath.com](https://www.contentmath.com).
+Further documentation for this module is available at [www.contentmath.com](http://www.contentmath.com/articles/2016/4/4/islandora-pretty-text-diff-compare-datastream-versions).
 
 ## Troubleshooting/Issues
 
@@ -41,13 +43,13 @@ Have an issue with the module?
 
 Need support or additional features or modifications?
 
-* [Content Math](https://www.contentmath.com)
+* [Content Math](http://www.contentmath.com)
 
 ## Maintainers/Sponsors
 
 Current maintainers:
 
-* [Mitch MacKenzie](https://www.contentmath.com)
+* [Mitch MacKenzie](http://www.contentmath.com)
 
 ## License
 
